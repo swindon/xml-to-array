@@ -36,11 +36,26 @@ class XmlToArray {
      * @return array|boolean false for failure
      */
     public function toArray($extend=false) {
-        $root = $this->xml;
+        if(!$root = $this->xml) {
+            throw new Exception('Cannot parse an Array on NULL',1);
+        }
         $output = [
             $root->tagName => $this->DOMDocumentToArray($root,$extend),
         ];
         return $output;
+    }
+    
+    /**
+     * Convert a given XML String to Array
+     *
+     * @param string $xmlString
+     * @return array|boolean false for failure
+     */
+    public function dom() {
+        if(!$root = $this->xml) {
+            throw new Exception('Cannot parse Dom on NULL',1);
+        }
+        return $root;
     }
 
     /**
