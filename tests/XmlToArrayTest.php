@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Vyuldashev\XmlToArray\Test;
+namespace SWindon\XmlToArray\Test;
 
 use PHPUnit\Framework\TestCase;
 use Spatie\ArrayToXml\ArrayToXml;
-use Vyuldashev\XmlToArray\XmlToArray;
+use SWindon\XmlToArray\XmlToArray;
 
 class XmlToArrayTest extends TestCase
 {
