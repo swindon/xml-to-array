@@ -1,111 +1,94 @@
 <?php
 
-declare(strict_types=1);
 
-namespace Vyuldashev\XmlToArray;
+namespace SWindon\XmlToArray;
 
-use DOMAttr;
-use DOMText;
-use DOMElement;
 use DOMDocument;
-use DOMCdataSection;
-use DOMNamedNodeMap;
 
-class XmlToArray
-{
-    protected $document;
+class XmlToArray {
 
-    public function __construct(string $xml)
-    {
-        $this->document = new DOMDocument();
-        $this->document->loadXML($xml);
+    const NAME_ATTRIBUTES = '_attributes';
+
+    const NAME_CONTENT = '_value';
+
+    /**
+     * Convert a given XML String to Array
+     *
+     * @param string $xmlString
+     * @return array|boolean false for failure
+     */
+    public static function XmlToArray($xmlString) {
+        $doc = new DOMDocument();
+        $load = $doc->loadXML($xmlString);
+        if ($load == false) {
+            return false;
+        }
+        $root = $doc->documentElement;
+        $output = [
+            $root->tagName => self::DOMDocumentToArray($root),
+        ];
+        return $output;
     }
 
-    public static function convert(string $xml): array
-    {
-        $converter = new static($xml);
+    /**
+     * Convert DOMDocument->documentElement to array
+     *
+     * @param DOMElement $documentElement
+     * @return array
+     */
+    protected static function DOMDocumentToArray($documentElement) {
+        $return = array();
+        switch ($documentElement->nodeType) {
 
-        return $converter->toArray();
-    }
+            case XML_CDATA_SECTION_NODE:
+                $return = trim($documentElement->textContent);
+                break;
+            case XML_TEXT_NODE:
+                $return = trim($documentElement->textContent);
+                break;
 
-    protected function convertAttributes(DOMNamedNodeMap $nodeMap): ?array
-    {
-        if ($nodeMap->length === 0) {
-            return null;
-        }
-
-        $result = [];
-
-        /** @var DOMAttr $item */
-        foreach ($nodeMap as $item) {
-            $result[$item->name] = $item->value;
-        }
-
-        return ['_attributes' => $result];
-    }
-
-    protected function isHomogenous(array $arr)
-    {
-        $firstValue = current($arr);
-        foreach ($arr as $val) {
-            if ($firstValue !== $val) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    protected function convertDomElement(DOMElement $element)
-    {
-        $sameNames = false;
-        $result = $this->convertAttributes($element->attributes);
-
-        if ($element->childNodes->length > 1) {
-            $childNodeNames = [];
-            foreach ($element->childNodes as $key => $node) {
-                $childNodeNames[] = $node->nodeName;
-            }
-            $sameNames = $this->isHomogenous($childNodeNames);
-        }
-
-        foreach ($element->childNodes as $key => $node) {
-            if ($node instanceof DOMCdataSection) {
-                $result['_cdata'] = $node->data;
-
-                continue;
-            }
-            if ($node instanceof DOMText) {
-                $result = $node->textContent;
-
-                continue;
-            }
-            if ($node instanceof DOMElement) {
-
-                if ($sameNames) {
-                    $result[$node->nodeName][$key] = $this->convertDomElement($node);
-                } else {
-                    $result[$node->nodeName] = $this->convertDomElement($node);
+            case XML_ELEMENT_NODE:
+                for ($count=0, $childNodeLength=$documentElement->childNodes->length; $count<$childNodeLength; $count++) {
+                    $child = $documentElement->childNodes->item($count);
+                    $childValue = self::DOMDocumentToArray($child);
+                    if(isset($child->tagName)) {
+                        $tagName = $child->tagName;
+                        if(!isset($return[$tagName])) {
+                            $return[$tagName] = array();
+                        }
+                        $return[$tagName][] = $childValue;
+                    }
+                    elseif($childValue || $childValue === '0') {
+                        $return = (string) $childValue;
+                    }
+                }
+                if($documentElement->attributes->length && !is_array($return)) {
+                    $return = array(self::NAME_CONTENT=>$return);
                 }
 
-                continue;
-            }
+                if(is_array($return))
+                {
+                    if($documentElement->attributes->length)
+                    {
+                        $attributes = array();
+                        foreach($documentElement->attributes as $attrName => $attrNode)
+                        {
+                            $attributes[$attrName] = (string) $attrNode->value;
+                        }
+                        $return[self::NAME_ATTRIBUTES] = $attributes;
+                    }
+                    foreach ($return as $key => $value)
+                    {
+                        if(is_array($value) && count($value)==1 && $key!=self::NAME_ATTRIBUTES)
+                        {
+                            $return[$key] = $value[0];
+                        }
+                    }
+                }
+                break;
         }
-
-        return $result;
+        if(empty($return)) $return = null;
+        return $return;
     }
 
-    public function toArray(): array
-    {
-        $result = [];
-
-        if ($this->document->hasChildNodes()) {
-            $children = $this->document->childNodes;
-
-            foreach ($children as $child) {
-                $result[$child->nodeName] = $this->convertDomElement($child);
-            }
-        }
-
-        return $result;
-    }
 }
