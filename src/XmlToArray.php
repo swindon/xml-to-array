@@ -7,9 +7,11 @@ use DOMDocument;
 
 class XmlToArray {
 
-    const NAME_ATTRIBUTES = '_attributes';
+    private $NAME_ATTRIBUTES = '@attributes';
 
-    const NAME_CONTENT = '_value';
+    private $NAME_CONTENT = '@value';
+
+    private $xml;
 
     /**
      * Convert a given XML String to Array
@@ -17,15 +19,26 @@ class XmlToArray {
      * @param string $xmlString
      * @return array|boolean false for failure
      */
-    public static function XmlToArray($xmlString) {
+    public function parse($xmlString) {
         $doc = new DOMDocument();
         $load = $doc->loadXML($xmlString);
         if ($load == false) {
             return false;
         }
-        $root = $doc->documentElement;
+        $this->xml = $doc->documentElement;
+        return $this;
+    }
+
+    /**
+     * Convert a given XML String to Array
+     *
+     * @param string $xmlString
+     * @return array|boolean false for failure
+     */
+    public function toArray($extend=false) {
+        $root = $this->xml;
         $output = [
-            $root->tagName => self::DOMDocumentToArray($root),
+            $root->tagName => $this->DOMDocumentToArray($root,$extend),
         ];
         return $output;
     }
@@ -36,7 +49,7 @@ class XmlToArray {
      * @param DOMElement $documentElement
      * @return array
      */
-    protected static function DOMDocumentToArray($documentElement) {
+    protected function DOMDocumentToArray($documentElement,$extend=false) {
         $return = array();
         switch ($documentElement->nodeType) {
 
@@ -50,7 +63,7 @@ class XmlToArray {
             case XML_ELEMENT_NODE:
                 for ($count=0, $childNodeLength=$documentElement->childNodes->length; $count<$childNodeLength; $count++) {
                     $child = $documentElement->childNodes->item($count);
-                    $childValue = self::DOMDocumentToArray($child);
+                    $childValue = $this->DOMDocumentToArray($child,$extend);
                     if(isset($child->tagName)) {
                         $tagName = $child->tagName;
                         if(!isset($return[$tagName])) {
@@ -62,24 +75,24 @@ class XmlToArray {
                         $return = (string) $childValue;
                     }
                 }
-                if($documentElement->attributes->length && !is_array($return)) {
-                    $return = array(self::NAME_CONTENT=>$return);
+                if($extend && $documentElement->attributes->length && !is_array($return)) {
+                    $return = array($this->NAME_CONTENT=>$return);
                 }
 
                 if(is_array($return))
                 {
-                    if($documentElement->attributes->length)
+                    if($extend && $documentElement->attributes->length)
                     {
                         $attributes = array();
                         foreach($documentElement->attributes as $attrName => $attrNode)
                         {
                             $attributes[$attrName] = (string) $attrNode->value;
                         }
-                        $return[self::NAME_ATTRIBUTES] = $attributes;
+                        $return[$this->NAME_ATTRIBUTES] = $attributes;
                     }
                     foreach ($return as $key => $value)
                     {
-                        if(is_array($value) && count($value)==1 && $key!=self::NAME_ATTRIBUTES)
+                        if(is_array($value) && count($value)==1 && $key!=$this->NAME_ATTRIBUTES)
                         {
                             $return[$key] = $value[0];
                         }
